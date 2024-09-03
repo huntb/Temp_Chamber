@@ -9,6 +9,7 @@ import asyncio
 import keypad
 import time
 import random
+import neopixel  # Import the neopixel library
 
 # Release any resources currently in use for the displays
 displayio.release_displays()
@@ -45,6 +46,10 @@ fan = digitalio.DigitalInOut(board.D2)
 fan.direction = digitalio.Direction.OUTPUT
 fan.value = False  # Ensure fan is off initially
 
+# Initialize NeoPixel
+pixel = neopixel.NeoPixel(board.NEOPIXEL, 1)
+pixel.brightness = 0.3  # Set brightness level
+
 # Variables to track the display mode and temperature unit
 display_mode = 0
 temp_unit = "F"
@@ -79,11 +84,13 @@ async def update_temperature():
             if current_temp < set_temp:
                 heater.value = True
                 heater_on = True
+                pixel[0] = (255, 0, 0)  # Turn NeoPixel red when heater is on
                 if fan_enabled and (time.monotonic() - heater_off_time >= 30):
                     fan.value = True
             else:
                 heater.value = False
                 fan.value = False
+                pixel[0] = (0, 0, 255)  # Turn NeoPixel blue when heater is off
                 if heater_on:
                     heater_off_time = time.monotonic()
                 heater_on = False
@@ -91,7 +98,7 @@ async def update_temperature():
         await asyncio.sleep(1)
 
 async def display_screen_saver():
-    global display_mode, display_off, temp_label
+    global display_mode, display_off, temp_label, start_mode
     while True:
         # Check if it's time to activate the screen saver
         if time.monotonic() - last_button_time > 30:
@@ -237,11 +244,14 @@ async def button_handler():
                 last_button_time = time.monotonic()
                 if display_off:
                     display_off = False
-                    display_mode = 1
-                    display_main_screen()
+                    if start_mode:
+                        display_startup_screen()
+                    else:
+                        display_mode = 1
+                        display_main_screen()
                     await asyncio.sleep(0.1)  # Short sleep to ensure display updates
                     continue  # Skip the rest of the loop to immediately yield control
-
+                    
                 elif start_mode:
                     if event.key_number == 0:  # button1 is pressed
                         set_temp += 1  # Increase set temperature
