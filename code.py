@@ -289,4 +289,4 @@ async def main():
     await button_handler()
 
 # Run the main function in an event loop
-asyncio.run(main())
+asyncio.run(main()) # type: ignore
