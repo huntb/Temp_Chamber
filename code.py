@@ -84,19 +84,24 @@ async def update_temperature():
             if current_temp < set_temp:
                 heater.value = True
                 heater_on = True
+                pixel.fill((255, 0, 0))  # Turn Neopixel red when the heater is on
                 if fan_mode == "Auto" and (time.monotonic() - heater_off_time >= 30):
                     fan.value = True
             else:
                 heater.value = False
-                if fan_mode == "Auto":
+                pixel.fill((0, 0, 255))  # Turn Neopixel blue when the heater is off
+                if fan_mode != "On":
                     fan.value = False
                 if heater_on:
                     heater_off_time = time.monotonic()
                 heater_on = False
 
+            # Immediately apply fan control mode
             if fan_mode == "On":
                 fan.value = True
             elif fan_mode == "Off":
+                fan.value = False
+            elif fan_mode == "Auto" and not heater_on:
                 fan.value = False
 
         await asyncio.sleep(1)
