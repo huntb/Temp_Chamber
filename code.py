@@ -288,6 +288,9 @@ async def button_handler():
                     elif event.key_number == 2:  # button3 is pressed
                         fan_enabled = not fan_enabled
                         fan_label.text = f" {'Enabled' if fan_enabled else 'Disabled'}"
+                        if not fan_enabled:
+                            fan.value = False  # Turn off the fan immediately if it's disabled
+
         await asyncio.sleep(0.05)
 
 async def main():
