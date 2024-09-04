@@ -60,7 +60,7 @@ heater_on = False
 heater_off_time = 0
 display_off = False
 last_button_time = time.monotonic()
-fan_enabled = True
+fan_mode = "Auto"  # Default fan mode
 start_mode = True
 
 def convert_temp(temp, unit, to_celsius=False):
@@ -84,16 +84,20 @@ async def update_temperature():
             if current_temp < set_temp:
                 heater.value = True
                 heater_on = True
-                pixel[0] = (255, 0, 0)  # Turn NeoPixel red when heater is on
-                if fan_enabled and (time.monotonic() - heater_off_time >= 30):
+                if fan_mode == "Auto" and (time.monotonic() - heater_off_time >= 30):
                     fan.value = True
             else:
                 heater.value = False
-                fan.value = False
-                pixel[0] = (0, 0, 255)  # Turn NeoPixel blue when heater is off
+                if fan_mode == "Auto":
+                    fan.value = False
                 if heater_on:
                     heater_off_time = time.monotonic()
                 heater_on = False
+
+            if fan_mode == "On":
+                fan.value = True
+            elif fan_mode == "Off":
+                fan.value = False
 
         await asyncio.sleep(1)
 
@@ -214,9 +218,9 @@ def display_menu_screen():
     splash = displayio.Group()
     display.root_group = splash
 
-    menu_text = "Back\nTemp Units:\nFan:"
+    menu_text = "Back\nTemp Units:\nFan Mode:"
     unit_text = f" {temp_unit}"
-    fan_text = f" {'Enabled' if fan_enabled else 'Disabled'}"
+    fan_text = f" {fan_mode}"
 
     menu_label = label.Label(
         small_font, text=menu_text, line_spacing=1, color=white, x=2, y=10
@@ -231,12 +235,12 @@ def display_menu_screen():
 
     global fan_label
     fan_label = label.Label(
-        small_font, text=fan_text, color=white, x=30, y=54
+        small_font, text=fan_text, color=white, x=68, y=54
     )
     splash.append(fan_label)
 
 async def button_handler():
-    global last_button_time, display_mode, temp_unit, set_temp, start_mode, fan_enabled, display_off
+    global last_button_time, display_mode, temp_unit, set_temp, start_mode, fan_mode, display_off
     while True:
         event = buttons.events.get()
         if event:
@@ -244,14 +248,11 @@ async def button_handler():
                 last_button_time = time.monotonic()
                 if display_off:
                     display_off = False
-                    if start_mode:
-                        display_startup_screen()
-                    else:
-                        display_mode = 1
-                        display_main_screen()
+                    display_mode = 1
+                    display_main_screen()
                     await asyncio.sleep(0.1)  # Short sleep to ensure display updates
                     continue  # Skip the rest of the loop to immediately yield control
-                    
+
                 elif start_mode:
                     if event.key_number == 0:  # button1 is pressed
                         set_temp += 1  # Increase set temperature
@@ -286,11 +287,14 @@ async def button_handler():
                         # Update set temperature display
                         set_temp_label.text = "Set: %.0f %s" % (set_temp, temp_unit)
                     elif event.key_number == 2:  # button3 is pressed
-                        fan_enabled = not fan_enabled
-                        fan_label.text = f" {'Enabled' if fan_enabled else 'Disabled'}"
-                        if not fan_enabled:
-                            fan.value = False  # Turn off the fan immediately if it's disabled
-
+                        # Cycle through fan modes
+                        if fan_mode == "Auto":
+                            fan_mode = "On"
+                        elif fan_mode == "On":
+                            fan_mode = "Off"
+                        else:
+                            fan_mode = "Auto"
+                        fan_label.text = f" {fan_mode}"
         await asyncio.sleep(0.05)
 
 async def main():
