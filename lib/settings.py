@@ -10,6 +10,7 @@ from adafruit_bitmap_font import bitmap_font
 WIDTH = 128
 HEIGHT = 64
 white = 0xFFFFFF
+
 set_temp = 75  # Default set temperature in Fahrenheit
 temp_unit = "F"
 fan_mode = "Auto"
