@@ -245,13 +245,21 @@ def display_menu_screen():
     splash.append(fan_label)
 
 async def button_handler():
+    """
+    Handles all button inputs and associated actions like navigating menus and adjusting settings.
+
+    This function runs in an infinite loop, waiting for button events and taking action accordingly.
+    """
     global last_button_time, display_mode, temp_unit, set_temp, start_mode, fan_mode, display_off
+
     while True:
         event = buttons.events.get()
         if event:
             if event.pressed:
                 last_button_time = time.monotonic()
                 if display_off:
+                    # If the display is off and a button is pressed, turn the display on and
+                    # show the main screen
                     display_off = False
                     display_mode = 1
                     display_main_screen()
@@ -259,6 +267,7 @@ async def button_handler():
                     continue  # Skip the rest of the loop to immediately yield control
 
                 elif start_mode:
+                    # Handle button presses while in the startup mode
                     if event.key_number == 0:  # button1 is pressed
                         set_temp += 1  # Increase set temperature
                         start_temp_label.text = "%.0f %s" % (set_temp, temp_unit)
@@ -270,6 +279,7 @@ async def button_handler():
                         display_mode = 1  # Move to the main screen
                         display_main_screen()
                 elif display_mode == 1:
+                    # Handle button presses while in the main screen
                     if event.key_number == 0:  # button1 is pressed
                         display_mode = 2  # Move to menu screen
                         display_menu_screen()
@@ -280,6 +290,7 @@ async def button_handler():
                         set_temp -= 1  # Decrease set temperature
                         set_temp_label.text = "Set: %.0f %s" % (set_temp, temp_unit)
                 elif display_mode == 2:
+                    # Handle button presses while in the menu screen
                     if event.key_number == 0:  # button1 is pressed
                         display_mode = 1  # Return to main screen
                         display_main_screen()
