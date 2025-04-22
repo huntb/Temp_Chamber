@@ -247,71 +247,95 @@ def display_menu_screen():
 async def button_handler():
     """
     Handles all button inputs and associated actions like navigating menus and adjusting settings.
-
     This function runs in an infinite loop, waiting for button events and taking action accordingly.
     """
     global last_button_time, display_mode, temp_unit, set_temp, start_mode, fan_mode, display_off
 
     while True:
         event = buttons.events.get()
-        if event:
-            if event.pressed:
-                last_button_time = time.monotonic()
-                if display_off:
-                    # If the display is off and a button is pressed, turn the display on and
-                    # show the main screen
-                    display_off = False
-                    display_mode = 1
-                    display_main_screen()
-                    await asyncio.sleep(0.1)  # Short sleep to ensure display updates
-                    continue  # Skip the rest of the loop to immediately yield control
+        if event and event.pressed:
+            last_button_time = time.monotonic()
 
-                elif start_mode:
-                    # Handle button presses while in the startup mode
-                    if event.key_number == 0:  # button1 is pressed
-                        set_temp += 1  # Increase set temperature
-                        start_temp_label.text = "%.0f %s" % (set_temp, temp_unit)
-                    elif event.key_number == 1:  # button2 is pressed
-                        set_temp -= 1  # Decrease set temperature
-                        start_temp_label.text = "%.0f %s" % (set_temp, temp_unit)
-                    elif event.key_number == 2:  # button3 is pressed
-                        start_mode = False
-                        display_mode = 1  # Move to the main screen
-                        display_main_screen()
-                elif display_mode == 1:
-                    # Handle button presses while in the main screen
-                    if event.key_number == 0:  # button1 is pressed
-                        display_mode = 2  # Move to menu screen
-                        display_menu_screen()
-                    elif event.key_number == 1:  # button2 is pressed
-                        set_temp += 1  # Increase set temperature
-                        set_temp_label.text = "Set: %.0f %s" % (set_temp, temp_unit)
-                    elif event.key_number == 2:  # button3 is pressed
-                        set_temp -= 1  # Decrease set temperature
-                        set_temp_label.text = "Set: %.0f %s" % (set_temp, temp_unit)
-                elif display_mode == 2:
-                    # Handle button presses while in the menu screen
-                    if event.key_number == 0:  # button1 is pressed
-                        display_mode = 1  # Return to main screen
-                        display_main_screen()
-                    elif event.key_number == 1:  # button2 is pressed
-                        # Toggle temperature unit
-                        temp_unit = "C" if temp_unit == "F" else "F"
-                        unit_label.text = f" {temp_unit}"
-                        # Convert set_temp when unit changes
-                        set_temp = convert_temp(set_temp, temp_unit, to_celsius=(temp_unit == "C"))
-                        # Update set temperature display
-                        set_temp_label.text = "Set: %.0f %s" % (set_temp, temp_unit)
-                    elif event.key_number == 2:  # button3 is pressed
-                        # Cycle through fan modes
-                        if fan_mode == "Auto":
-                            fan_mode = "On"
-                        elif fan_mode == "On":
-                            fan_mode = "Off"
-                        else:
-                            fan_mode = "Auto"
-                        fan_label.text = f" {fan_mode}"
+            if display_off:
+                display_off = False
+                display_mode = 1
+                display_main_screen()
+                await asyncio.sleep(0.1)
+                continue
+
+            if start_mode:
+                handle_start_mode(event)
+            elif display_mode == 1:
+                handle_main_screen(event)
+            elif display_mode == 2:
+                handle_menu_screen(event)
+
         await asyncio.sleep(0.05)
+
+
+def handle_start_mode(event):
+    global start_mode, display_mode, set_temp
+
+    if event.key_number == 0:
+        set_temp += 1
+        update_start_temp_label()
+    elif event.key_number == 1:
+        set_temp -= 1
+        update_start_temp_label()
+    elif event.key_number == 2:
+        start_mode = False
+        display_mode = 1
+        display_main_screen()
+
+
+def handle_main_screen(event):
+    global display_mode, set_temp
+
+    if event.key_number == 0:
+        display_mode = 2
+        display_menu_screen()
+    elif event.key_number == 1:
+        set_temp += 1
+        update_set_temp_label()
+    elif event.key_number == 2:
+        set_temp -= 1
+        update_set_temp_label()
+
+
+def handle_menu_screen(event):
+    global display_mode, temp_unit, set_temp, fan_mode
+
+    if event.key_number == 0:
+        display_mode = 1
+        display_main_screen()
+    elif event.key_number == 1:
+        toggle_temp_unit()
+    elif event.key_number == 2:
+        cycle_fan_mode()
+
+
+def update_start_temp_label():
+    start_temp_label.text = f"{set_temp:.0f} {temp_unit}"
+
+
+def update_set_temp_label():
+    set_temp_label.text = f"Set: {set_temp:.0f} {temp_unit}"
+
+
+def toggle_temp_unit():
+    global temp_unit, set_temp
+
+    temp_unit = "C" if temp_unit == "F" else "F"
+    unit_label.text = f" {temp_unit}"
+    set_temp = convert_temp(set_temp, temp_unit, to_celsius=(temp_unit == "C"))
+    update_set_temp_label()
+
+
+def cycle_fan_mode():
+    global fan_mode
+
+    fan_mode = {"Auto": "On", "On": "Off", "Off": "Auto"}[fan_mode]
+    fan_label.text = f" {fan_mode}"
 
 async def main():
     display_splash_screen()
