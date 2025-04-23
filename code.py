@@ -10,6 +10,7 @@ import keypad
 import time
 import random
 import neopixel  # Import the neopixel library
+import analogio
 
 # Release any resources currently in use for the displays
 displayio.release_displays()
@@ -28,8 +29,15 @@ large_font = bitmap_font.load_font(font_R24)
 font_R18 = "fonts/helvR18.bdf"
 reg_font = bitmap_font.load_font(font_R18)
 
+font_B18 = "fonts/helvB18.bdf"
+bold_font = bitmap_font.load_font(font_B18)
+
 font_R12 = "fonts/helvR10.bdf"
 small_font = bitmap_font.load_font(font_R12)
+
+# Initialize voltage measurement
+voltage_pin = analogio.AnalogIn(board.A0)
+VOLTAGE_DIVIDER_RATIO = (44.2 + 10) / 10  # Voltage divider scaling factor
 
 # Initialize buttons with the keypad module
 buttons = keypad.Keys((board.D9, board.D8, board.D7), value_when_pressed=False)
@@ -62,6 +70,24 @@ display_off = False
 last_button_time = time.monotonic()
 fan_mode = "Auto"  # Default fan mode
 start_mode = True
+
+def read_voltage():
+    """Reads the voltage from the ADC and applies the voltage divider scaling."""
+    raw_value = voltage_pin.value  # Read the raw ADC value
+    voltage = (raw_value * 3.3) / 65535  # Convert ADC value to voltage
+    return voltage * VOLTAGE_DIVIDER_RATIO  # Apply the voltage divider ratio
+
+async def monitor_voltage():
+    """Monitors the input voltage and reacts if it goes out of range."""
+    global display_mode
+    while True:
+        voltage = read_voltage()
+        if voltage < 11 or voltage > 13:
+            print(f"Warning: Voltage out of range! Measured: {voltage:.2f}V")  # Log message for debugging
+            # display_mode = 4  # Set to a warning display mode
+            fan.value = False  # Disable fan
+            heater.value = False  # Disable heater
+        await asyncio.sleep(1)  # Check voltage periodically
 
 def convert_temp(temp, unit, to_celsius=False):
     if to_celsius:
@@ -122,6 +148,7 @@ async def display_screen_saver():
             # Get the current temperature and convert it if necessary
             current_temp = temp_sensor.temperature
             current_temp = convert_temp(current_temp, temp_unit)
+            print(current_temp)
 
             temp_text = "%.0f%s" % (current_temp, temp_unit)
 
@@ -154,7 +181,7 @@ def display_splash_screen():
     splash = displayio.Group()
     display.root_group = splash
 
-    hello = "      Hunt\n         &\n     Homes"
+    text = "Cultured."
 
     color_bitmap = displayio.Bitmap(128, 64, 1)
     color_palette = displayio.Palette(1)
@@ -163,10 +190,10 @@ def display_splash_screen():
     bg_sprite = displayio.TileGrid(color_bitmap, pixel_shader=color_palette, x=0, y=0)
     splash.append(bg_sprite)
 
-    hello_text = label.Label(
-        reg_font, scale=1, text=hello, line_spacing=0.55, color=0x000000, x=2, y=12
+    text_label = label.Label(
+        bold_font, scale=1, text=text, line_spacing=0.55, color=0x000000, x=64 - len(text) * 6, y=32
     )
-    splash.append(hello_text)
+    splash.append(text_label)
 
 def display_startup_screen():
     splash = displayio.Group()
@@ -341,6 +368,7 @@ async def main():
     display_splash_screen()
     await asyncio.sleep(3)
     display_startup_screen()
+    asyncio.create_task(monitor_voltage())
     asyncio.create_task(update_temperature())
     asyncio.create_task(display_screen_saver())
     await button_handler()
